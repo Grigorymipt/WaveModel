@@ -57,10 +57,17 @@ public:
     float GetVelocity(){
         return velocity;
     }
+    void SetMass(float mass){
+        Cell::mass_1 = mass;
+    }
+    float GetMass(){
+        return mass_1;
+    }
 private:
     float delta = 0;
     float velocity = 0;
     int pos[2];
+    int mass_1 = 1; // величина, обратная массе.
 };
 
 
@@ -153,6 +160,22 @@ public:
         for (int i = 0; i < size; i++){
             space[i] = new Cell [size];
         }
+        for (int i = 0; i < size; i++){
+            for (int j = 0; j < size; j++){
+                space[i][j].SetDelta(0);
+            }
+        }
+        const int N = 2;
+        Y = new float[N];
+        YY = new float[N];
+        Y1 = new float[N];
+        Y2 = new float[N];
+        Y3 = new float[N];
+        Y4 = new float[N];
+        FY = new float[N];
+        time = 0;
+        dt = 0.001;
+        float *FY = new float[N];
     }
     Cell** GetSpace(){
         return space;
@@ -164,53 +187,94 @@ public:
         return delta;
     }
     float GetVelocity(int pos[2]){
-        float delta, velocity;
-        delta = (space[pos[0] < size - 1 ? pos[0] + 1 : size - 1][pos[1]].GetDelta() 
+        float force, velocity;
+        force = (space[pos[0] < size - 1 ? pos[0] + 1 : size - 1][pos[1]].GetDelta() 
                     + space[pos[0] > 0 ? pos[0] - 1 : 0][pos[1]].GetDelta() 
                     + space[pos[0]][pos[1] < size - 1 ? pos[1] - 1 : size - 1].GetDelta() 
                     + space[pos[0]][pos[1] > 0 ? pos[1] - 1 : 0].GetDelta()) / 4 
                     - space[pos[0]][pos[1]].GetDelta();
         velocity = space[pos[0]][pos[1]].GetVelocity();
-        velocity = velocity + delta/1000;
+        velocity = velocity + force/1000;
         return velocity;
+    }
+    float *F(float t, float *Y, int *pos)
+    {       
+        float force = (space[pos[0] < size - 1 ? pos[0] + 1 : size - 1][pos[1]].GetDelta() 
+                    + space[pos[0] > 0 ? pos[0] - 1 : 0][pos[1]].GetDelta() 
+                    + space[pos[0]][pos[1] < size - 1 ? pos[1] + 1 : size - 1].GetDelta() 
+                    + space[pos[0]][pos[1] > 0 ? pos[1] - 1 : 0].GetDelta()) / 4 
+                    - space[pos[0]][pos[1]].GetDelta();
+        FY[0] = force * space[pos[0]][pos[1]].GetMass() / 100 ;
+        FY[1] = Y[0];
+        return FY;
+    }
+    float *RungeKutta(int *pos, int time){
+        int N = 2;
+        Y[0] = space[pos[0]][pos[1]].GetVelocity();
+        Y[1] = space[pos[0]][pos[1]].GetDelta();
+
+        Y1 = F(time, Y, pos);
+        for (int i = 0; i < N; i++)
+            YY[i] = Y[i] + Y1[i] * (dt / 2.0);
+        
+        Y2 = F(time + dt / 2.0, YY, pos);
+        for (int i = 0; i < N; i++)
+            YY[i] = Y[i] + Y2[i] * (dt / 2.0);
+
+        Y3 = F(time + dt / 2.0, YY, pos);
+        for (int i = 0; i < N; i++)
+            YY[i] = Y[i] + Y3[i] * dt;
+
+        Y4 = F(time + dt, YY, pos);
+        for (int i = 0; i < N; i++)
+            Y[i] = Y[i] + dt / 6.0 * (Y1[i] + 2.0 * Y2[i] + 2.0 * Y3[i] + Y4[i]);
+        return Y;
     }
     void Refresh(){
         // Cell **nextSpace = new Cell* [size];
         // for (int i = 0; i < size; i++){
         //     nextSpace[i] = new Cell [size];
         // }
-        // for(int i = 0; i < size; i++){
-        //     for(int j = 0; j < size; j++){
-        //         float delta, velocity;
-        //         int *pos = new int[2];
-        //         pos[0] = i;
-        //         pos[1] = j;
-        //         delta = GetDelta(pos);
-        //         velocity = GetVelocity(pos);
-        //         // nextSpace[i][j].SetDelta(delta);
-        //         // nextSpace[i][j].SetVelocity(velocity);
-
-        //         space[i][j].SetDelta(delta);
-        //         space[i][j].SetVelocity(velocity);
-
-        //         delete [] pos; 
-        //     }
-        // }
-        for(int i = 0; i < size * size - 1; i++){
-            float delta, velocity;
-            int *pos = new int[2];
-            pos[0] = i / size;
-            pos[1] = i % size;
-            delta = GetDelta(pos);
-            velocity = GetVelocity(pos);
-            // nextSpace[i][j].SetDelta(delta);
-            // nextSpace[i][j].SetVelocity(velocity);
-
-            space[pos[0]][pos[1]].SetDelta(delta);
-            space[pos[0]][pos[1]].SetVelocity(velocity);
-
-            delete [] pos; 
+        for(int i = 0; i < size; i++){
+            for(int j = 0; j < size; j++){
+                float *phase = new float[2];
+                int *pos = new int[2];
+                pos[0] = i;
+                pos[1] = j;
+                // delta = GetDelta(pos);
+                // velocity = GetVelocity(pos);
+                // nextSpace[i][j].SetDelta(delta);
+                // nextSpace[i][j].SetVelocity(velocity);
+                phase = RungeKutta(pos, time);
+                space[i][j].SetDelta(phase[1]);
+                space[i][j].SetVelocity(phase[0]);
+                delete [] pos; 
+                delete [] phase;
+            }
         }
+        time += dt;
+        
+        // while ()
+        // for(int i = 0; i < size * size; i++){
+        //     float delta, velocity;
+        //     int *pos = new int[2];
+        //     pos[0] = i / size;
+        //     pos[1] = i % size;
+        //     // delta = GetDelta(pos);
+        //     // velocity = GetVelocity(pos);
+
+
+        //     delta = RungeKutta(pos)[1];
+        //     velocity = RungeKutta(pos)[0];
+            
+        //     // nextSpace[i][j].SetDelta(delta);
+        //     // nextSpace[i][j].SetVelocity(velocity);
+
+        //     space[pos[0]][pos[1]].SetDelta(delta);
+        //     space[pos[0]][pos[1]].SetVelocity(velocity);
+
+        //     delete [] pos; 
+        // }
         // for(int i = 0; i < size; i++){
         //     for(int j = 0; j < size; j++){
         //         space[i][j] = nextSpace[i][j];
@@ -219,35 +283,64 @@ public:
         // for (int i = 0; i < 2; i++){
         //     delete [] nextSpace[size];
         // }
+
+    }
+    ~Space2(){
+        delete [] Y;
+        delete [] Y1;
+        delete [] Y2;
+        delete [] Y3;
+        delete [] Y4;
+        delete [] YY;
+        delete [] FY;
     }
 private:
     // int pos[2];
     Cell **space;
+    float *Y;
+    float *YY;
+    float *Y1;
+    float *Y2;
+    float *Y3;
+    float *Y4;
+    float *FY;
+    float time;
+    float dt;
 };
 
 int main(void)
 {
+    // int igh = threadIdx.x;
     // Space1 *space = new Space1(1000000);
     // space->GetSpace()[0].SetDelta(1);
 
-    Space2 *space = new Space2(1000);
-    space->GetSpace()[0][0].SetDelta(1);
+    Space2 *space = new Space2(51);
+    for(int i = 0; i < space->GetSize(); i++){
+        space->GetSpace()[i][0].SetDelta(64);
+        space->GetSpace()[i][9].SetMass(0);
+    }
+    for(int i = 22; i < 29; i++)
+        space->GetSpace()[i][9].SetMass(1);
+    // space->GetSpace()[1][1].SetDelta(1);
+    // space->GetSpace()[2][2].SetDelta(1);
     
     int j = 0;
     while(1){
-        space->Refresh();
-        if(j % 100 == 0){
-            // for(int i = 0; i < space->GetSize(); i++){
-            //     for(int j = 0; j < space->GetSize(); j++){
-            //         // cout << space->GetSpace()[i][j].GetDelta() << " ";
-            //     }
-            //     // cout << endl;
-            // }
-            cout << j;
+        
+        if(j % 1000 == 0){
+            for(int i = 0; i < space->GetSize(); i++){
+                for(int j = 0; j < space->GetSize(); j++){
+                    int outNumber = round(space->GetSpace()[i][j].GetDelta()*100)/100;
+                    cout << ((outNumber >= 0) ? " " : "") << ((abs(outNumber) > 9) ? "" : " ") << outNumber << " ";
+                }
+                cout << endl;
+            }
+            // cout << j;
             cout << endl;
             cout << endl;
         }
-        // usleep(10000);
+        space->Refresh();
+        // usleep(10);
         j++;
     }
     // задать класс комнаты с наследование поведения гриба, по умолчанию должен быть стандартный круглый гриб
