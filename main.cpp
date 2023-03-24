@@ -2,6 +2,7 @@
 #include<cmath>
 #include<string>
 #include<unistd.h>
+#include<fstream>
 
 using namespace std;
 
@@ -315,15 +316,17 @@ int main(void)
     // space->GetSpace()[0].SetDelta(1);
 
     Space2 *space = new Space2(51);
+    int wall = 10;
     for(int i = 0; i < space->GetSize(); i++){
         space->GetSpace()[i][0].SetDelta(64);
-        space->GetSpace()[i][9].SetMass(0);
+        space->GetSpace()[i][wall].SetMass(0);
+        space->GetSpace()[i][space->GetSize() - 10].SetMass(0);
     }
-    for(int i = 22; i < 29; i++)
-        space->GetSpace()[i][9].SetMass(1);
+    for(int i = 22; i < 28; i++)
+        space->GetSpace()[i][wall].SetMass(1);
     // space->GetSpace()[1][1].SetDelta(1);
     // space->GetSpace()[2][2].SetDelta(1);
-    
+    ofstream MyFile("data.txt");
     int j = 0;
     while(1){
         
@@ -331,18 +334,22 @@ int main(void)
             for(int i = 0; i < space->GetSize(); i++){
                 for(int j = 0; j < space->GetSize(); j++){
                     int outNumber = round(space->GetSpace()[i][j].GetDelta()*100)/100;
+                    MyFile << ((outNumber >= 0) ? " " : "") << ((abs(outNumber) > 9) ? "" : " ") << outNumber << " ";
                     cout << ((outNumber >= 0) ? " " : "") << ((abs(outNumber) > 9) ? "" : " ") << outNumber << " ";
                 }
+                MyFile << endl;
                 cout << endl;
             }
             // cout << j;
-            cout << endl;
+            MyFile << endl;
             cout << endl;
         }
         space->Refresh();
         // usleep(10);
         j++;
     }
+    MyFile.close();
+    cout << endl;
     // задать класс комнаты с наследование поведения гриба, по умолчанию должен быть стандартный круглый гриб
     // комната должна последовательно содержать информацию об образующем эллипсе и о ножке гриба
     // применить более точный численный метод (напр. Рунге-Кутты)
